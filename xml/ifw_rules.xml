@@ -1,0 +1,83 @@
+<!--
+  //block defaults to false, log defaults to false
+  <activity block="true/false" log="true/false">
+    //intent-filter or component-filter must be present (1st phase)
+    //From the sender (the resolved intent)
+    <intent-filter>
+      // typical intent action string to be performed
+      <action name=""/>
+      // kind of component that should handle the intent
+      <cat name=""/>
+      // data (MIME) type */*
+      <type name=""/>
+      these are the data pieces of the intent
+      The scheme part of a URI (scheme://host:port/path)
+      <scheme name=""/>
+      scheme-specific-part
+      <ssp literal="" sglob="" prefix="" />
+      scheme://host:port/path
+      <path literal="" sglob="" prefix="" />
+      scheme://host:port/path
+      <auth host="" port="" />
+    </intent-filter>
+    From the sender
+    name of the component that should handle the intent, from intent.getComponent()
+    <component-filter name="string"/>
+
+    not sure these presently work
+    <and>
+    </and>
+    <not>
+    </not>
+    <or>
+    </or>
+
+    caller isPrivilegedApp or has same signature as the resolved one, the signatures match or
+         caller has same userid as the resolved one
+    <sender type="signature,system,system|signature,userId"/>
+    if caller has a permission
+    <sender-permission name="string"/>
+    Value Provider (String Filters)
+    component full name of receiver
+    <component equals="" startsWith="" contains="" pattern="" regex="" isNull=""/>
+    class name of the component of receiver
+    <component-name equals="" startsWith="" contains="" pattern="" regex="" isNull=""/>
+     package name of the component of receiver
+    <component-package equals="" startsWith="" contains="" pattern="" regex="" isNull=""/>
+    all the intent-filter stuff from the sender
+     literal match, startsWith the string, contains the string somewhere,
+    pattern , regex is java regex, isNull if value is null
+    <action equals="" startsWith="" contains="" pattern="" regex="" isNull=""/>
+    <data equals="" startsWith="" contains="" pattern="" regex="" isNull=""/>
+    <mime-type equals="" startsWith="" contains="" pattern="" regex="" isNull=""/>
+    <scheme equals="" startsWith="" contains="" pattern="" regex="" isNull=""/>
+    <scheme-specific-part equals="" startsWith="" contains="" pattern="" regex="" isNull=""/>
+    <host equals="" startsWith="" contains="" pattern="" regex="" isNull=""/>
+    <path equals="" startsWith="" contains="" pattern="" regex="" isNull=""/>
+    <port equals="" min="" max=""/>
+    <category name="string"/>
+  </activity>
+-->
+
+
+<rules>
+
+  <!-- look for 'ifw_intent_matched' tags from 'adb logcat -b events' -->
+
+  <!-- log all actions aimed at a few components -->
+  <activity log="true">
+    <action regex=".*" />
+    <component-filter name="com.google.android.gallery3d/com.android.gallery3d.app.GalleryActivity"/>
+    <component-filter name="com.android.launcher/com.android.launcher2.Launcher"/>
+    <component-filter name="com.example.zqh1/com.example.zqh1.Welcome"/>
+  </activity>
+
+  <!-- log the VIDEO_CAPTURE action aimed at any package -->
+  <activity log="true">
+    <intent-filter>
+      <action name="android.media.action.VIDEO_CAPTURE"/>
+    </intent-filter>
+    <component-package regex=".*"/>
+  </activity>
+
+</rules>

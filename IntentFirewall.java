@@ -123,6 +123,7 @@ public class IntentFirewall {
      */
     public boolean checkStartActivity(Intent intent, int callerUid, int callerPid,
             String resolvedType, ApplicationInfo resolvedApp) {
+        Slog.i(TAG, "Activity check caught, ComponentName = " + intent.getComponent().flattenToString());
         return checkIntent(mActivityResolver, intent.getComponent(), TYPE_ACTIVITY, intent,
                 callerUid, callerPid, resolvedType, resolvedApp.uid);
     }
@@ -449,6 +450,8 @@ public class IntentFirewall {
                 if (componentName == null) {
                     throw new XmlPullParserException("Invalid component name: " + componentStr);
                 }
+
+                Slog.i(TAG, "component-filter added, ComponentName = " + componentName.flattenToString());
 
                 mComponentFilters.add(componentName);
             } else {
