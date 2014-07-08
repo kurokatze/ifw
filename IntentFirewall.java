@@ -28,6 +28,7 @@ import android.os.FileObserver;
 import android.os.Handler;
 import android.os.Message;
 import android.os.RemoteException;
+import android.os.SELinux;
 import android.util.ArrayMap;
 import android.util.Slog;
 import android.util.Xml;
@@ -123,28 +124,51 @@ public class IntentFirewall {
      */
     public boolean checkStartActivity(Intent intent, int callerUid, int callerPid,
             String resolvedType, ApplicationInfo resolvedApp) {
-        Slog.i(TAG, "Activity check caught, ComponentName = " + intent.getComponent().flattenToString());
-        return checkIntent(mActivityResolver, intent.getComponent(), TYPE_ACTIVITY, intent,
-                callerUid, callerPid, resolvedType, resolvedApp.uid);
+        return checkIntent(mActivityResolver, intent.getComponent(), intent.getComponent().getPackageName(),
+                TYPE_ACTIVITY, intent, callerUid, callerPid, resolvedType, resolvedApp.uid);
     }
 
     public boolean checkService(ComponentName resolvedService, Intent intent, int callerUid,
             int callerPid, String resolvedType, ApplicationInfo resolvedApp) {
-        return checkIntent(mServiceResolver, resolvedService, TYPE_SERVICE, intent, callerUid,
-                callerPid, resolvedType, resolvedApp.uid);
+        return checkIntent(mServiceResolver, resolvedService, resolvedService.getPackageName(),
+                TYPE_SERVICE, intent, callerUid, callerPid, resolvedType, resolvedApp.uid);
     }
 
-    public boolean checkBroadcast(Intent intent, int callerUid, int callerPid,
+    public boolean checkBroadcast(String targetPackage, Intent intent, int callerUid, int callerPid,
             String resolvedType, int receivingUid) {
-        return checkIntent(mBroadcastResolver, intent.getComponent(), TYPE_BROADCAST, intent,
+        return checkIntent(mBroadcastResolver, intent.getComponent(), targetPackage, TYPE_BROADCAST, intent,
                 callerUid, callerPid, resolvedType, receivingUid);
     }
 
     public boolean checkIntent(FirewallIntentResolver resolver, ComponentName resolvedComponent,
-            int intentType, Intent intent, int callerUid, int callerPid, String resolvedType,
-            int receivingUid) {
+            String targetPackage, int intentType, Intent intent, int callerUid, int callerPid,
+            String resolvedType, int receivingUid) {
         boolean log = false;
         boolean block = false;
+
+        IPackageManager pm = AppGlobals.getPackageManager();
+        ApplicationInfo appInfo = null;
+        String se = null;
+        try {
+            appInfo = pm.getApplicationInfo(targetPackage, 0, 0);
+            if(appInfo == null) {
+                se = "notfound";
+            } else {
+                se = appInfo.seinfo;
+            };
+        } catch (RemoteException ex) {
+            Slog.e(TAG, "Remote exception while checking seinfo", ex);
+            se = "error";
+        }
+        if(resolvedComponent != null){
+            Slog.i(TAG, "Intent check caught, ComponentName = " + resolvedComponent.flattenToString()
+                    + ", Package = " + targetPackage + ", seinfo = " + se + ", Pid = " + callerPid
+                    + ", context = " + SELinux.getPidContext(callerPid));
+        } else {
+            Slog.i(TAG, "Intent check caught, ComponentName = null"
+                    + ", Package = " + targetPackage + ", seinfo = " + se + ", Pid = " + callerPid
+                    + ", context = " + SELinux.getPidContext(callerPid));
+        }
 
         // For the first pass, find all the rules that have at least one intent-filter or
         // component-filter that matches this intent

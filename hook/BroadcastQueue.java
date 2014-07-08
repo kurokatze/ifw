@@ -468,8 +468,8 @@ public final class BroadcastQueue {
             }
         }
         if (!skip) {
-            skip = !mService.mIntentFirewall.checkBroadcast(r.intent, r.callingUid,
-                    r.callingPid, r.resolvedType, filter.receiverList.uid);
+            skip = !mService.mIntentFirewall.checkBroadcast(filter.packageName, r.intent,
+                    r.callingUid, r.callingPid, r.resolvedType, filter.receiverList.uid);
         }
 
         if (filter.receiverList.app == null || filter.receiverList.app.crashing) {
@@ -786,8 +786,8 @@ public final class BroadcastQueue {
                 }
             }
             if (!skip) {
-                skip = !mService.mIntentFirewall.checkBroadcast(r.intent, r.callingUid,
-                        r.callingPid, r.resolvedType, info.activityInfo.applicationInfo.uid);
+                skip = !mService.mIntentFirewall.checkBroadcast(component.getPackageName(), r.intent,
+                        r.callingUid, r.callingPid, r.resolvedType, info.activityInfo.applicationInfo.uid);
             }
             boolean isSingleton = false;
             try {
