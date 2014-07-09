@@ -145,39 +145,27 @@ public class IntentFirewall {
             String resolvedType, int receivingUid) {
         boolean log = false;
         boolean block = false;
-
-        IPackageManager pm = AppGlobals.getPackageManager();
-        ApplicationInfo appInfo = null;
-        String se = null;
-        try {
-            appInfo = pm.getApplicationInfo(targetPackage, 0, 0);
-            if(appInfo == null) {
-                se = "notfound";
-            } else {
-                se = appInfo.seinfo;
-            };
-        } catch (RemoteException ex) {
-            Slog.e(TAG, "Remote exception while checking seinfo", ex);
-            se = "error";
-        }
+     
         if(resolvedComponent != null){
             Slog.i(TAG, "Intent check caught, ComponentName = " + resolvedComponent.flattenToString()
-                    + ", Package = " + targetPackage + ", seinfo = " + se + ", Pid = " + callerPid
-                    + ", context = " + SELinux.getPidContext(callerPid));
+                    + ", Package = " + targetPackage + ", seinfo = " + queryPackageSeinfo(targetPackage)
+                    + ", Pid = " + callerPid + ", context = " + queryPidDomain(callerPid));
         } else {
             Slog.i(TAG, "Intent check caught, ComponentName = null"
-                    + ", Package = " + targetPackage + ", seinfo = " + se + ", Pid = " + callerPid
-                    + ", context = " + SELinux.getPidContext(callerPid));
+                    + ", Package = " + targetPackage + ", seinfo = " + queryPackageSeinfo(targetPackage)
+                    + ", Pid = " + callerPid + ", context = " + queryPidDomain(callerPid));
         }
 
         // For the first pass, find all the rules that have at least one intent-filter or
-        // component-filter that matches this intent
+        // component-filter/domain-filter/seinfo-filter that matches this intent
         List<Rule> candidateRules;
         candidateRules = resolver.queryIntent(intent, resolvedType, false, 0);
         if (candidateRules == null) {
             candidateRules = new ArrayList<Rule>();
         }
         resolver.queryByComponent(resolvedComponent, candidateRules);
+        resolver.queryByDomain(queryPidDomain(callerPid), candidateRules);
+        resolver.queryBySeinfo(queryPackageSeinfo(targetPackage), candidateRules);
 
         // For the second pass, try to match the potentially more specific conditions in each
         // rule against the intent
@@ -399,6 +387,12 @@ public class IntentFirewall {
                 for (int i=0; i<rule.getComponentFilterCount(); i++) {
                     resolver.addComponentFilter(rule.getComponentFilter(i), rule);
                 }
+                for (int i=0; i<rule.getDomainFilterCount(); i++) {
+                    resolver.addDomainFilter(rule.getDomainFilter(i), rule);
+                }
+                for (int i=0; i<rule.getSeinfoFilterCount(); i++) {
+                    resolver.addSeinfoFilter(rule.getSeinfoFilter(i), rule);
+                }
             }
         }
     }
@@ -435,6 +429,8 @@ public class IntentFirewall {
     private static class Rule extends AndFilter {
         private static final String TAG_INTENT_FILTER = "intent-filter";
         private static final String TAG_COMPONENT_FILTER = "component-filter";
+        private static final String TAG_DOMAIN_FILTER = "src-domain-filter";
+        private static final String TAG_SEINFO_FILTER = "des-seinfo-filter";
         private static final String ATTR_NAME = "name";
 
         private static final String ATTR_BLOCK = "block";
@@ -443,6 +439,8 @@ public class IntentFirewall {
         private final ArrayList<FirewallIntentFilter> mIntentFilters =
                 new ArrayList<FirewallIntentFilter>(1);
         private final ArrayList<ComponentName> mComponentFilters = new ArrayList<ComponentName>(0);
+        private final ArrayList<String> mDomainFilters = new ArrayList<String>(0);
+        private final ArrayList<String> mSeinfoFilters = new ArrayList<String>(0);
         private boolean block;
         private boolean log;
 
@@ -478,6 +476,26 @@ public class IntentFirewall {
                 Slog.i(TAG, "component-filter added, ComponentName = " + componentName.flattenToString());
 
                 mComponentFilters.add(componentName);
+            } else if (currentTag.equals(TAG_DOMAIN_FILTER)) {
+                String domainStr = parser.getAttributeValue(null, ATTR_NAME);
+                if (domainStr == null) {
+                    throw new XmlPullParserException("Caller domain must be specified.",
+                            parser, null);
+                }
+
+                Slog.i(TAG, "doamin-filter added, domain = " + domainStr);
+
+                mDomainFilters.add(domainStr);
+            } else if (currentTag.equals(TAG_SEINFO_FILTER)) {
+                String seinfoStr = parser.getAttributeValue(null, ATTR_NAME);
+                if (seinfoStr == null) {
+                    throw new XmlPullParserException("Receiver seinfo must be specified.",
+                            parser, null);
+                }
+
+                Slog.i(TAG, "seinfo-filter added, seinfo = " + seinfoStr);
+
+                mSeinfoFilters.add(seinfoStr);
             } else {
                 super.readChild(parser);
             }
@@ -498,6 +516,23 @@ public class IntentFirewall {
         public ComponentName getComponentFilter(int index) {
             return mComponentFilters.get(index);
         }
+        
+        public int getDomainFilterCount() {
+            return mDomainFilters.size();
+        }
+
+        public String getDomainFilter(int index) {
+            return mDomainFilters.get(index);
+        }
+        
+        public int getSeinfoFilterCount() {
+            return mSeinfoFilters.size();
+        }
+
+        public String getSeinfoFilter(int index) {
+            return mSeinfoFilters.get(index);
+        }
+        
         public boolean getBlock() {
             return block;
         }
@@ -555,9 +590,41 @@ public class IntentFirewall {
             rules = ArrayUtils.appendElement(Rule.class, rules, rule);
             mRulesByComponent.put(componentName, rules);
         }
+        
+        public void queryByDomain(String domain, List<Rule> candidateRules) {
+            Rule[] rules = mRulesByDomain.get(domain);
+            if (rules != null) {
+                candidateRules.addAll(Arrays.asList(rules));
+            }
+        }
+
+        public void addDomainFilter(String domain, Rule rule) {
+            Rule[] rules = mRulesByDomain.get(domain);
+            rules = ArrayUtils.appendElement(Rule.class, rules, rule);
+            mRulesByDomain.put(domain, rules);
+        }
+        
+        public void queryBySeinfo(String seinfo, List<Rule> candidateRules) {
+            Rule[] rules = mRulesBySeinfo.get(seinfo);
+            if (rules != null) {
+                candidateRules.addAll(Arrays.asList(rules));
+            }
+        }
+
+        public void addSeinfoFilter(String seinfo, Rule rule) {
+            Rule[] rules = mRulesBySeinfo.get(seinfo);
+            rules = ArrayUtils.appendElement(Rule.class, rules, rule);
+            mRulesBySeinfo.put(seinfo, rules);
+        }
 
         private final ArrayMap<ComponentName, Rule[]> mRulesByComponent =
                 new ArrayMap<ComponentName, Rule[]>(0);
+        
+        private final ArrayMap<String, Rule[]> mRulesByDomain =
+                new ArrayMap<String, Rule[]>(0);
+        
+        private final ArrayMap<String, Rule[]> mRulesBySeinfo =
+                new ArrayMap<String, Rule[]>(0);
     }
 
     final Handler mHandler = new Handler() {
@@ -625,6 +692,28 @@ public class IntentFirewall {
             Slog.e(TAG, "Remote exception while checking signatures", ex);
             return false;
         }
+    }
+    
+    String queryPidDomain(int pid) {
+        String secontext = SELinux.getPidContext(pid);
+        return secontext.split(":")[2];
+    }
+    
+    String queryPackageSeinfo(String packagename) {
+        IPackageManager pm = AppGlobals.getPackageManager();
+        ApplicationInfo ai = null;
+        
+        try {
+            ai = pm.getApplicationInfo(packagename, 0, 0);
+        } catch (RemoteException ex) {
+            Slog.e(TAG, "Remote exception while checking seinfo", ex);
+        }
+        
+        if(ai != null) {
+            return ai.seinfo;
+        }
+        
+        return null;
     }
 
 }
