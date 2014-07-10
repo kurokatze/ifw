@@ -92,6 +92,8 @@ public class IntentFirewall {
                 StringFilter.SCHEME,
                 StringFilter.PATH,
                 StringFilter.SSP,
+                StringFilter.SRC_DOMAIN,
+                StringFilter.DES_SEINFO,
 
                 CategoryFilter.FACTORY,
                 SenderFilter.FACTORY,
@@ -149,11 +151,11 @@ public class IntentFirewall {
         if(resolvedComponent != null){
             Slog.i(TAG, "Intent check caught, ComponentName = " + resolvedComponent.flattenToString()
                     + ", Package = " + targetPackage + ", seinfo = " + queryPackageSeinfo(targetPackage)
-                    + ", Pid = " + callerPid + ", context = " + queryPidDomain(callerPid));
+                    + ", Pid = " + callerPid + ", domain = " + queryPidDomain(callerPid));
         } else {
             Slog.i(TAG, "Intent check caught, ComponentName = null"
                     + ", Package = " + targetPackage + ", seinfo = " + queryPackageSeinfo(targetPackage)
-                    + ", Pid = " + callerPid + ", context = " + queryPidDomain(callerPid));
+                    + ", Pid = " + callerPid + ", domain = " + queryPidDomain(callerPid));
         }
 
         // For the first pass, find all the rules that have at least one intent-filter or
@@ -171,8 +173,8 @@ public class IntentFirewall {
         // rule against the intent
         for (int i=0; i<candidateRules.size(); i++) {
             Rule rule = candidateRules.get(i);
-            if (rule.matches(this, resolvedComponent, intent, callerUid, callerPid, resolvedType,
-                    receivingUid)) {
+            if (rule.matches(this, resolvedComponent, targetPackage, intent, callerUid, callerPid,
+                    resolvedType, receivingUid)) {
                 block |= rule.getBlock();
                 log |= rule.getLog();
 
@@ -483,7 +485,7 @@ public class IntentFirewall {
                             parser, null);
                 }
 
-                Slog.i(TAG, "doamin-filter added, domain = " + domainStr);
+                Slog.i(TAG, "domain-filter added, domain = " + domainStr);
 
                 mDomainFilters.add(domainStr);
             } else if (currentTag.equals(TAG_SEINFO_FILTER)) {

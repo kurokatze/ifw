@@ -31,6 +31,6 @@ interface Filter {
      * @param resolvedType The resolved mime type of the intent
      * @param receivingUid The uid of the component receiving the intent
      */
-    boolean matches(IntentFirewall ifw, ComponentName resolvedComponent, Intent intent,
-            int callerUid, int callerPid, String resolvedType, int receivingUid);
+    boolean matches(IntentFirewall ifw, ComponentName resolvedComponent, String targetPackage,
+            Intent intent, int callerUid, int callerPid, String resolvedType, int receivingUid);
 }

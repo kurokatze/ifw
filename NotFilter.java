@@ -32,10 +32,10 @@ class NotFilter implements Filter {
     }
 
     @Override
-    public boolean matches(IntentFirewall ifw, ComponentName resolvedComponent, Intent intent,
-            int callerUid, int callerPid, String resolvedType, int receivingUid) {
-        return !mChild.matches(ifw, resolvedComponent, intent, callerUid, callerPid, resolvedType,
-                receivingUid);
+    public boolean matches(IntentFirewall ifw, ComponentName resolvedComponent, String targetPackage,
+            Intent intent, int callerUid, int callerPid, String resolvedType, int receivingUid) {
+        return !mChild.matches(ifw, resolvedComponent, targetPackage, intent, callerUid, callerPid,
+                resolvedType, receivingUid);
     }
 
     public static final FilterFactory FACTORY = new FilterFactory("not") {

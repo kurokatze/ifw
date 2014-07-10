@@ -41,8 +41,8 @@ class PortFilter implements Filter {
     }
 
     @Override
-    public boolean matches(IntentFirewall ifw, ComponentName resolvedComponent, Intent intent,
-            int callerUid, int callerPid, String resolvedType, int receivingUid) {
+    public boolean matches(IntentFirewall ifw, ComponentName resolvedComponent, String targetPackage,
+            Intent intent, int callerUid, int callerPid, String resolvedType, int receivingUid) {
         int port = -1;
         Uri uri = intent.getData();
         if (uri != null) {

@@ -34,8 +34,8 @@ class CategoryFilter implements Filter {
     }
 
     @Override
-    public boolean matches(IntentFirewall ifw, ComponentName resolvedComponent, Intent intent,
-            int callerUid, int callerPid, String resolvedType, int receivingUid) {
+    public boolean matches(IntentFirewall ifw, ComponentName resolvedComponent, String targetPackage,
+            Intent intent, int callerUid, int callerPid, String resolvedType, int receivingUid) {
         Set<String> categories = intent.getCategories();
         if (categories == null) {
             return false;
