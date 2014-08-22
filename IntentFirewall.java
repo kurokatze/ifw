@@ -61,10 +61,12 @@ public class IntentFirewall {
     private static final String TAG_ACTIVITY = "activity";
     private static final String TAG_SERVICE = "service";
     private static final String TAG_BROADCAST = "broadcast";
+    private static final String TAG_PROVIDER = "provider";
 
     private static final int TYPE_ACTIVITY = 0;
     private static final int TYPE_BROADCAST = 1;
     private static final int TYPE_SERVICE = 2;
+    private static final int TYPE_PROVIDER = 3;
 
     private static final HashMap<String, FilterFactory> factoryMap;
 
@@ -75,6 +77,7 @@ public class IntentFirewall {
     private FirewallIntentResolver mActivityResolver = new FirewallIntentResolver();
     private FirewallIntentResolver mBroadcastResolver = new FirewallIntentResolver();
     private FirewallIntentResolver mServiceResolver = new FirewallIntentResolver();
+    private FirewallIntentResolver mProviderResolver = new FirewallIntentResolver();
 
     static {
         FilterFactory[] factories = new FilterFactory[] {
@@ -140,6 +143,52 @@ public class IntentFirewall {
             String resolvedType, int receivingUid) {
         return checkIntent(mBroadcastResolver, intent.getComponent(), targetPackage, TYPE_BROADCAST, intent,
                 callerUid, callerPid, resolvedType, receivingUid);
+    }
+    
+    public String checkProvider(ComponentName resolvedComponent, int callerUid, int callerPid, int receivingUid) {
+        boolean log = false;
+        boolean block = false;
+        String targetPackage = resolvedComponent.getPackageName();
+        
+        if(resolvedComponent != null){
+            Slog.i(TAG, "Provider check caught, ComponentName = " + resolvedComponent.flattenToString()
+                    + ", Package = " + targetPackage + ", seinfo = " + queryPackageSeinfo(targetPackage)
+                    + ", Pid = " + callerPid + ", domain = " + queryPidDomain(callerPid));
+        } else {
+            Slog.i(TAG, "Provider check caught, ComponentName = null"
+                    + ", Package = " + targetPackage + ", seinfo = " + queryPackageSeinfo(targetPackage)
+                    + ", Pid = " + callerPid + ", domain = " + queryPidDomain(callerPid));
+        }
+        
+        List<Rule> candidateRules = new ArrayList<Rule>();
+        mProviderResolver.queryByDomain(queryPidDomain(callerPid), candidateRules);
+        mProviderResolver.queryBySeinfo(queryPackageSeinfo(targetPackage), candidateRules);
+        for (int i=0; i<candidateRules.size(); i++) {
+            Rule rule = candidateRules.get(i);
+            if (rule.matches(this, resolvedComponent, targetPackage, new Intent(), callerUid, callerPid,
+                    new String(), receivingUid)) {
+                block |= rule.getBlock();
+                log |= rule.getLog();
+
+                // if we've already determined that we should both block and log, there's no need
+                // to continue trying rules
+                if (block && log) {
+                    break;
+                }
+            }
+        }
+        
+        String msg = null;
+        if (log) {
+            Slog.i(TAG, "Permission Denial: opening provider " + resolvedComponent.flattenToShortString()
+                    + " from (pid=" + callerPid + ", uid=" + callerUid + ") denied by intentFirewall");
+        }
+        if(block) {
+            msg = "Permission Denial: opening provider " + resolvedComponent.flattenToShortString()
+                    + " from (pid=" + callerPid + ", uid=" + callerUid + ") denied by intentFirewall";
+        }
+        
+        return msg;
     }
 
     public boolean checkIntent(FirewallIntentResolver resolver, ComponentName resolvedComponent,
@@ -277,7 +326,7 @@ public class IntentFirewall {
      * serialized
      */
     private void readRulesDir(File rulesDir) {
-        FirewallIntentResolver[] resolvers = new FirewallIntentResolver[3];
+        FirewallIntentResolver[] resolvers = new FirewallIntentResolver[4];
         for (int i=0; i<resolvers.length; i++) {
             resolvers[i] = new FirewallIntentResolver();
         }
@@ -295,12 +344,14 @@ public class IntentFirewall {
 
         Slog.i(TAG, "Read new rules (A:" + resolvers[TYPE_ACTIVITY].filterSet().size() +
                 " B:" + resolvers[TYPE_BROADCAST].filterSet().size() +
-                " S:" + resolvers[TYPE_SERVICE].filterSet().size() + ")");
+                " S:" + resolvers[TYPE_SERVICE].filterSet().size() +
+                " P:" + resolvers[TYPE_PROVIDER].filterSet().size()+ ")");
 
         synchronized (mAms.getAMSLock()) {
             mActivityResolver = resolvers[TYPE_ACTIVITY];
             mBroadcastResolver = resolvers[TYPE_BROADCAST];
             mServiceResolver = resolvers[TYPE_SERVICE];
+            mProviderResolver = resolvers[TYPE_PROVIDER];
         }
     }
 
@@ -311,8 +362,8 @@ public class IntentFirewall {
         // some temporary lists to hold the rules while we parse the xml file, so that we can
         // add the rules all at once, after we know there weren't any major structural problems
         // with the xml file
-        List<List<Rule>> rulesByType = new ArrayList<List<Rule>>(3);
-        for (int i=0; i<3; i++) {
+        List<List<Rule>> rulesByType = new ArrayList<List<Rule>>(4);
+        for (int i=0; i<4; i++) {
             rulesByType.add(new ArrayList<Rule>());
         }
 
@@ -342,6 +393,8 @@ public class IntentFirewall {
                     ruleType = TYPE_BROADCAST;
                 } else if (tagName.equals(TAG_SERVICE)) {
                     ruleType = TYPE_SERVICE;
+                } else if (tagName.equals(TAG_PROVIDER)) {
+                    ruleType = TYPE_PROVIDER;
                 }
 
                 if (ruleType != -1) {
@@ -698,7 +751,10 @@ public class IntentFirewall {
     
     String queryPidDomain(int pid) {
         String secontext = SELinux.getPidContext(pid);
-        return secontext.split(":")[2];
+        if(secontext != null) {
+            return secontext.split(":")[2];
+        }
+        return null;
     }
     
     String queryPackageSeinfo(String packagename) {

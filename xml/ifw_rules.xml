@@ -65,11 +65,17 @@
   <!-- look for 'ifw_intent_matched' tags from 'adb logcat -b events' -->
 
   <!-- log all actions aimed at a few components -->
-  <activity log="true">
-    <action regex=".*" />
+  <activity log="true" block="true">
+    <!-- <action regex=".*" />
+    <intent-filter>
+      <action name="com.example.zqh1.welcome"/>
+    </intent-filter>
+
     <component-filter name="com.google.android.gallery3d/com.android.gallery3d.app.GalleryActivity"/>
     <component-filter name="com.android.launcher/com.android.launcher2.Launcher"/>
-    <component-filter name="com.example.zqh1/com.example.zqh1.Welcome"/>
+    <component-filter name="com.example.zqh1/com.example.zqh1.Welcome"/> -->
+    <des-seinfo-filter name="trusted"/>
+    <src-domain equals="untrusted_app"/>
   </activity>
 
   <!-- log the VIDEO_CAPTURE action aimed at any package -->
