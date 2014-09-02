@@ -65,7 +65,7 @@
   <!-- look for 'ifw_intent_matched' tags from 'adb logcat -b events' -->
 
   <!-- log all actions aimed at a few components -->
-  <activity log="true" block="true">
+  <provider log="true" block="true">
     <!-- <action regex=".*" />
     <intent-filter>
       <action name="com.example.zqh1.welcome"/>
@@ -76,7 +76,7 @@
     <component-filter name="com.example.zqh1/com.example.zqh1.Welcome"/> -->
     <des-seinfo-filter name="trusted"/>
     <src-domain equals="untrusted_app"/>
-  </activity>
+  </provider>
 
   <!-- log the VIDEO_CAPTURE action aimed at any package -->
   <activity log="true">
