@@ -23,6 +23,8 @@
     From the sender
     name of the component that should handle the intent, from intent.getComponent()
     <component-filter name="string"/>
+    <src-domain-filter name="string"/>
+    <des-seinfo-filter name="string"/>
 
     not sure these presently work
     <and>
@@ -44,6 +46,10 @@
     <component-name equals="" startsWith="" contains="" pattern="" regex="" isNull=""/>
      package name of the component of receiver
     <component-package equals="" startsWith="" contains="" pattern="" regex="" isNull=""/>
+    domain of sender process
+    <src-domain equals="" startsWith="" contains="" pattern="" regex="" isNull=""/>
+    seinfo of reciever package
+    <des-seinfo equals="" startsWith="" contains="" pattern="" regex="" isNull=""/>
     all the intent-filter stuff from the sender
      literal match, startsWith the string, contains the string somewhere,
     pattern , regex is java regex, isNull if value is null
@@ -75,6 +81,7 @@
     <component-filter name="com.android.launcher/com.android.launcher2.Launcher"/>
     <component-filter name="com.example.zqh1/com.example.zqh1.Welcome"/> -->
     <des-seinfo-filter name="trusted"/>
+
     <src-domain equals="untrusted_app"/>
   </provider>
 
